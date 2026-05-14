@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+uvicorn.log
+*.log
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+migrations/versions/
