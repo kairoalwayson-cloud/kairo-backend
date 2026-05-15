@@ -138,7 +138,7 @@ def _build_assistant_payload(
 
     return {
         "name": f"{ai_name} ({business_name})",
-        "firstMessage": f"Hello! Olá! ¡Hola! Thanks for calling {business_name} — I'm {ai_name}. How can I help you today? / Como posso te ajudar? / ¿En qué puedo ayudarte?",
+        "firstMessage": f"Hello, thanks for calling {business_name}! I'm {ai_name}. How can I help you today?",
         "model": {
             "provider": "anthropic",
             "model": "claude-haiku-4-5-20251001",
