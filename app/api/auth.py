@@ -111,18 +111,25 @@ If you didn't request this, ignore this email.
         msg["Subject"] = "Reset your Kairo password"
         msg["From"] = settings.SMTP_FROM
         msg["To"] = to_email
-        try:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
-                smtp.ehlo()
-                smtp.starttls()
-                smtp.ehlo()
-                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD or "")
-                smtp.sendmail(settings.SMTP_USER, to_email, msg.as_string())
-                logger.info("Reset email sent to %s via SMTP", to_email)
-                return  # only return on success
-        except Exception as e:
-            logger.error("Failed to send reset email via SMTP: %s", e)
-            # fall through to Resend
+        # Try port 465 (SSL) first — Railway blocks 587 (STARTTLS) but allows 465
+        for port, use_ssl in [(465, True), (587, False)]:
+            try:
+                if use_ssl:
+                    with smtplib.SMTP_SSL(settings.SMTP_HOST, port, timeout=10) as smtp:
+                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD or "")
+                        smtp.sendmail(settings.SMTP_USER, to_email, msg.as_string())
+                else:
+                    with smtplib.SMTP(settings.SMTP_HOST, port, timeout=10) as smtp:
+                        smtp.ehlo()
+                        smtp.starttls()
+                        smtp.ehlo()
+                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD or "")
+                        smtp.sendmail(settings.SMTP_USER, to_email, msg.as_string())
+                logger.info("Reset email sent to %s via SMTP port %d", to_email, port)
+                return
+            except Exception as e:
+                logger.error("SMTP port %d failed: %s", port, e)
+        # Both SMTP ports failed — fall through to Resend
 
     # Fallback: Resend API
     if not settings.RESEND_API_KEY:
