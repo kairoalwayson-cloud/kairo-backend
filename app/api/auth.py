@@ -119,9 +119,10 @@ If you didn't request this, ignore this email.
                 smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD or "")
                 smtp.sendmail(settings.SMTP_USER, to_email, msg.as_string())
                 logger.info("Reset email sent to %s via SMTP", to_email)
+                return  # only return on success
         except Exception as e:
             logger.error("Failed to send reset email via SMTP: %s", e)
-        return
+            # fall through to Resend
 
     # Fallback: Resend API
     if not settings.RESEND_API_KEY:
