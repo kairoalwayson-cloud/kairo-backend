@@ -40,6 +40,12 @@ class Business(Base):
     # Vapi
     vapi_assistant_id = Column(String, nullable=True)
 
+    # Dedicated Twilio phone number
+    twilio_phone_sid = Column(String, nullable=True)
+    twilio_phone_number = Column(String, nullable=True)
+    vapi_phone_id = Column(String, nullable=True)
+    phone_verified = Column(Boolean, default=False)
+
     # Notifications
     notify_on_new_lead = Column(Boolean, default=True)
     notify_on_escalate = Column(Boolean, default=True)

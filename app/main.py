@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import auth, conversations, webhooks, onboarding, calendar, vapi, billing, facebook_oauth, calls
+from app.api import auth, conversations, webhooks, onboarding, calendar, vapi, billing, facebook_oauth, calls, phone
 from app.api import settings as settings_router
 from app.database import Base, engine
 
@@ -36,6 +36,7 @@ app.include_router(settings_router.router)
 app.include_router(billing.router)
 app.include_router(facebook_oauth.router)
 app.include_router(calls.router)
+app.include_router(phone.router)
 
 
 @app.on_event("startup")
@@ -115,6 +116,10 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_call_logs_business_id ON call_logs(business_id)",
         "CREATE INDEX IF NOT EXISTS idx_call_logs_lead_id ON call_logs(lead_id)",
         "CREATE INDEX IF NOT EXISTS idx_call_logs_vapi_call_id ON call_logs(vapi_call_id)",
+        "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS twilio_phone_sid VARCHAR",
+        "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS twilio_phone_number VARCHAR",
+        "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS vapi_phone_id VARCHAR",
+        "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE",
     ]
     try:
         from sqlalchemy import text
