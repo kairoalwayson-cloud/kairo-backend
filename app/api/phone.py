@@ -184,6 +184,50 @@ def confirm_verification(
     return {"ok": True}
 
 
+@router.post("/connect-ai")
+def connect_to_ai(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retry Vapi phone registration for an already-purchased Twilio number."""
+    business = db.query(Business).filter(Business.owner_id == current_user.id).first()
+    if not business or not business.twilio_phone_number:
+        raise HTTPException(400, "No purchased phone number found")
+    if not settings.VAPI_API_KEY:
+        raise HTTPException(500, "VAPI_API_KEY not configured")
+
+    vapi_payload: dict = {
+        "provider": "twilio",
+        "number": business.twilio_phone_number,
+        "twilioAccountSid": settings.TWILIO_ACCOUNT_SID,
+        "twilioAuthToken": settings.TWILIO_AUTH_TOKEN,
+        "name": business.name,
+    }
+    if business.vapi_assistant_id:
+        vapi_payload["assistantId"] = business.vapi_assistant_id
+
+    try:
+        resp = httpx.post(
+            f"{VAPI_BASE}/phone-number",
+            headers=_vapi_headers(),
+            json=vapi_payload,
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            vapi_phone_id = resp.json().get("id")
+            business.vapi_phone_id = vapi_phone_id
+            db.commit()
+            return {"ok": True, "vapi_phone_id": vapi_phone_id}
+        else:
+            logger.error("Vapi connect-ai failed: %s %s", resp.status_code, resp.text[:400])
+            raise HTTPException(502, f"Vapi error {resp.status_code}: {resp.text[:300]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Vapi connect-ai exception: %s", e)
+        raise HTTPException(500, str(e))
+
+
 @router.delete("/release")
 def release_number(
     current_user: User = Depends(get_current_user),
