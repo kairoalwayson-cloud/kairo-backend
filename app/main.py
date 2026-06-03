@@ -39,6 +39,45 @@ app.include_router(calls.router)
 app.include_router(phone.router)
 
 
+@app.post("/api/admin/relink-calls")
+def relink_calls(secret: str, db=None):
+    """One-time: link existing CallLogs to Leads by time proximity."""
+    if secret != "kairo-relink-2026":
+        from fastapi import HTTPException
+        raise HTTPException(403, "forbidden")
+    from app.database import get_db
+    from app.models.call_log import CallLog
+    from app.models.lead import Lead
+    from sqlalchemy.orm import Session
+    from datetime import timedelta
+    db: Session = next(get_db())
+    unlinked = db.query(CallLog).filter(CallLog.lead_id.is_(None)).all()
+    updated = 0
+    details = []
+    for call in unlinked:
+        if not call.business_id:
+            continue
+        # Find voice leads for this business created/updated near call end time
+        ref_time = call.ended_at or call.created_at
+        if not ref_time:
+            continue
+        window_start = ref_time - timedelta(minutes=15)
+        window_end   = ref_time + timedelta(minutes=5)
+        lead = db.query(Lead).filter(
+            Lead.business_id == call.business_id,
+            Lead.channel == "voice",
+            Lead.status == "scheduled",
+            Lead.last_message_at >= window_start,
+            Lead.last_message_at <= window_end,
+        ).order_by(Lead.last_message_at.desc()).first()
+        if lead:
+            call.lead_id = lead.id
+            updated += 1
+            details.append({"call_id": str(call.id), "lead_name": lead.name, "lead_id": str(lead.id)})
+    db.commit()
+    return {"updated": updated, "details": details, "total_unlinked": len(unlinked)}
+
+
 @app.on_event("startup")
 async def startup():
     import logging, asyncio
