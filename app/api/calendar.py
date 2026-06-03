@@ -569,7 +569,7 @@ def create_appointment_event(
             "end": {"dateTime": end_dt.isoformat(), "timeZone": tz_name},
         }
         result = gcal.events().insert(calendarId="primary", body=event).execute()
-        return result.get("htmlLink")
+        return result.get("id")  # return event ID so it can be saved on the lead
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Create calendar event failed: {e}")

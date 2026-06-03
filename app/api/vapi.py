@@ -137,11 +137,11 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
 
     logger.info(f"Appointment booked: lead={lead.id} at={appointment_dt}")
 
-    # Create Google Calendar event
+    # Create Google Calendar event and save ID on the lead
     try:
         if appointment_dt:
             from app.api.calendar import create_appointment_event
-            event_link = create_appointment_event(
+            event_id = create_appointment_event(
                 user_id=str(business.owner_id),
                 lead_name=lead_name or "Lead",
                 service=service or "Service",
@@ -149,8 +149,10 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
                 start_dt=appointment_dt,
                 db=db,
             )
-            if event_link:
-                logger.info(f"Calendar event created: {event_link}")
+            if event_id:
+                lead.google_event_id = event_id
+                db.commit()
+                logger.info(f"Calendar event created: {event_id}")
     except Exception as e:
         logger.error(f"Calendar event creation error: {e}")
 

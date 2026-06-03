@@ -78,7 +78,8 @@ def list_leads(
     if status:
         query = query.filter(Lead.status == status)
 
-    leads = query.order_by(Lead.last_message_at.desc()).limit(100).all()
+    from sqlalchemy import nullslast
+    leads = query.order_by(nullslast(Lead.last_message_at.desc())).limit(100).all()
 
     return [
         {
