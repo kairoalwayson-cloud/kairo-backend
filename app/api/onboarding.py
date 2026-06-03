@@ -16,6 +16,25 @@ from app.models.channel import Channel
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 
+def _build_zone_text(zones: list) -> str:
+    if not zones:
+        return "All locations accepted."
+    z = zones[0]
+    if z.type == "radius":
+        return f"Serves within {z.radius_km}km radius of base location. REJECT callers clearly outside this area."
+    if z.type == "zipcodes" and z.locations:
+        return f"Serves ONLY these zip codes: {', '.join(z.locations)}. REJECT any caller from a different zip code."
+    if z.locations:
+        label = "cities" if z.type == "cities" else "neighborhoods"
+        locs = ", ".join(z.locations)
+        return (
+            f"Serves ONLY these {label}: {locs}. "
+            f"REJECT any caller from a different city, state, or region — even if it sounds similar. "
+            f"Only accept if the caller's city matches one of these exactly."
+        )
+    return "All locations accepted."
+
+
 def _get_or_create_business(db: Session, user: User) -> Business:
     business = db.query(Business).filter(Business.owner_id == user.id).first()
     if not business:
@@ -240,11 +259,7 @@ def save_ai_config(
         f"- {s.name}" + (f" (${s.price_min:.0f}–${s.price_max:.0f})" if s.price_min and s.price_max else "")
         for s in services
     ) or "Services not configured yet."
-    zone_text = (
-        f"Within {zones[0].radius_km}km of base location" if zones and zones[0].type == "radius"
-        else "Neighborhoods: " + ", ".join(zones[0].locations) if zones and zones[0].locations
-        else "All locations accepted."
-    )
+    zone_text = _build_zone_text(zones)
     assistant_id = create_or_update_assistant(
         business_name=business.name,
         ai_name=data.ai_name,

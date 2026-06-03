@@ -153,6 +153,32 @@ def save_zones(
             radius_km=data.radius_km,
         ))
     db.commit()
+
+    # Sync Vapi assistant with updated service area
+    try:
+        from app.models.service import Service
+        from app.services.vapi_service import create_or_update_assistant
+        from app.api.onboarding import _build_zone_text
+        services = db.query(Service).filter(Service.business_id == business.id, Service.active == True).all()
+        services_text = "\n".join(f"- {s.name}" for s in services) or "Services not configured yet."
+        zones = db.query(ServiceZone).filter(ServiceZone.business_id == business.id).all()
+        zone_text = _build_zone_text(zones)
+        new_id = create_or_update_assistant(
+            business_name=business.name,
+            ai_name=business.ai_name,
+            ai_gender=business.ai_gender,
+            ai_tone=business.ai_tone,
+            services_text=services_text,
+            zone_text=zone_text,
+            existing_assistant_id=business.vapi_assistant_id,
+        )
+        if new_id and new_id != business.vapi_assistant_id:
+            business.vapi_assistant_id = new_id
+            db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Vapi zone sync error: {e}")
+
     return {"ok": True}
 
 
