@@ -75,7 +75,10 @@ def _build_assistant_payload(
         f"- 'Next Friday' / 'sexta que vem' = the Friday of the FOLLOWING week.\n"
         f"- 'Tomorrow' / 'amanhã' = TODAY + 1 day.\n"
         f"- When caller gives a weekday name, calculate the exact YYYY-MM-DD date before confirming.\n"
-        f"- Always say the full date when confirming: 'Friday, May 8th' not just 'Friday'.\n\n"
+        f"- CRITICAL — WEEKDAY NAMES: NEVER say a weekday name (Monday, Tuesday, Friday, etc.) when confirming a date UNLESS the caller used that exact weekday name themselves.\n"
+        f"  Correct: 'June 4th at 4 PM — does that work for you?' ✓\n"
+        f"  WRONG: 'Thursday, June 4th at 4 PM' ✗ (you may calculate the weekday incorrectly)\n"
+        f"  Exception: if the caller said 'next Friday', you may repeat 'Friday June 4th' only after verifying from {{{{now}}}} that June 4 is indeed a Friday.\n\n"
 
         f"ADDRESS — MANDATORY BEFORE BOOKING:\n"
         f"- NEVER call book_appointment without the caller's full street address.\n"
