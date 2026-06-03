@@ -104,6 +104,12 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
     time_str   = args.get("time", "08:00")
     notes      = args.get("notes", "")
 
+    # Guard: require name AND phone before booking
+    if not phone:
+        return "I still need the caller's phone number before I can book the appointment. Could you please provide it?"
+    if not lead_name:
+        return "I still need the caller's name before I can book the appointment. Could you please provide it?"
+
     appointment_dt = _parse_appointment_dt(date_str, time_str, business.timezone or "America/New_York")
 
     # Upsert lead by phone within this business
@@ -170,9 +176,18 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
     except Exception as e:
         logger.error(f"Booking report error: {e}")
 
-    # Format confirmation sentence Ana will speak
+    # Format confirmation using original local date/time (appointment_dt is UTC)
     if appointment_dt:
-        formatted = appointment_dt.strftime("%A, %B %d at %I:%M %p").replace(" 0", " ")
+        try:
+            local_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+            hour = local_dt.hour
+            minute = local_dt.minute
+            suffix = "AM" if hour < 12 else "PM"
+            h12 = hour % 12 or 12
+            time_label = f"{h12}:{minute:02d} {suffix}"
+            formatted = f"{local_dt.strftime('%B')} {local_dt.day} at {time_label}"
+        except Exception:
+            formatted = f"{date_str} at {time_str}"
         return (
             f"Perfect, {lead_name or 'your appointment'} is confirmed for {formatted}. "
             f"We look forward to seeing you! Is there anything else I can help you with?"
