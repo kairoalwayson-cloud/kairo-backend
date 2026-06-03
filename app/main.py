@@ -120,6 +120,8 @@ def _run_migrations():
         "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS twilio_phone_number VARCHAR",
         "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS vapi_phone_id VARCHAR",
         "ALTER TABLE businesses ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE leads ADD COLUMN IF NOT EXISTS vapi_call_id VARCHAR",
+        "CREATE INDEX IF NOT EXISTS idx_leads_vapi_call_id ON leads(vapi_call_id)",
     ]
     try:
         from sqlalchemy import text

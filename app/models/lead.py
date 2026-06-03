@@ -31,6 +31,7 @@ class Lead(Base):
     # Scheduling
     appointment_at = Column(DateTime(timezone=True), nullable=True)
     google_event_id = Column(String, nullable=True)
+    vapi_call_id = Column(String, nullable=True)
 
     # Follow-up
     last_message_at = Column(DateTime(timezone=True), nullable=True)

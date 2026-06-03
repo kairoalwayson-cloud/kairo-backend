@@ -91,7 +91,7 @@ def _parse_appointment_dt(date_str: str, time_str: str, tz_name: str = "America/
 
 # ── Tool handlers ─────────────────────────────────────────────────────────────
 
-def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
+def handle_book_appointment(args: dict, db: Session, business: Business, vapi_call_id: str = None) -> str:
     """
     Creates (or updates) a Lead record with a confirmed appointment.
     Returns a short sentence Ana speaks back to the caller.
@@ -137,6 +137,8 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
     if notes:
         lead.notes = notes
     lead.last_message_at = datetime.utcnow()
+    if vapi_call_id:
+        lead.vapi_call_id = vapi_call_id
 
     db.commit()
     db.refresh(lead)
@@ -296,10 +298,17 @@ def _save_call_log(db: Session, message: dict) -> None:
         )
         caller_phone = caller_raw.strip() if caller_raw else None
 
-        # Try to match an existing lead by phone (exact then fuzzy last-10-digits)
+        # Match lead: 1) by vapi_call_id, 2) by phone exact, 3) by phone fuzzy
         lead_id = None
-        if caller_phone:
-            from app.models.lead import Lead as LeadModel
+        vapi_cid = call.get("id")
+        from app.models.lead import Lead as LeadModel
+        lead = None
+        if vapi_cid:
+            lead = db.query(LeadModel).filter(
+                LeadModel.business_id == business.id,
+                LeadModel.vapi_call_id == vapi_cid,
+            ).first()
+        if not lead and caller_phone:
             lead = db.query(LeadModel).filter(
                 LeadModel.business_id == business.id,
                 LeadModel.phone == caller_phone,
@@ -317,8 +326,8 @@ def _save_call_log(db: Session, message: dict) -> None:
                         if (d[-10:] if len(d) >= 10 else d) == norm:
                             lead = cand
                             break
-            if lead:
-                lead_id = lead.id
+        if lead:
+            lead_id = lead.id
 
         def _parse_dt(s: str | None):
             if not s:
@@ -367,6 +376,7 @@ async def vapi_tool_calls(request: Request, db: Session = Depends(get_db)):
         return {"received": True}
 
     business = _find_business(db, message)
+    vapi_call_id = message.get("call", {}).get("id")  # pass to book_appointment
 
     results = []
     for tool_call in message.get("toolCallList", []):
@@ -383,7 +393,10 @@ async def vapi_tool_calls(request: Request, db: Session = Depends(get_db)):
         handler = TOOL_HANDLERS.get(fn_name)
         if handler and business:
             try:
-                result_text = handler(args, db, business)
+                if fn_name == "book_appointment":
+                    result_text = handler(args, db, business, vapi_call_id=vapi_call_id)
+                else:
+                    result_text = handler(args, db, business)
             except Exception as e:
                 logger.error(f"Tool handler error ({fn_name}): {e}")
                 result_text = "I'm sorry, I had trouble booking that. Let me transfer you to a team member."

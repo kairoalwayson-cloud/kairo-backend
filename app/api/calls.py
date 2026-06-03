@@ -34,6 +34,13 @@ def _enrich(call: CallLog, db: Session, business_id) -> dict:
     if call.lead_id:
         lead = db.query(Lead).filter(Lead.id == call.lead_id).first()
 
+    # Try match by vapi_call_id (most reliable — set during book_appointment)
+    if not lead and call.vapi_call_id:
+        lead = db.query(Lead).filter(
+            Lead.business_id == business_id,
+            Lead.vapi_call_id == call.vapi_call_id,
+        ).first()
+
     if not lead and call.caller_phone:
         # Try exact match first, then last-10-digit fuzzy match
         lead = db.query(Lead).filter(
