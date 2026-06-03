@@ -553,17 +553,22 @@ def create_appointment_event(
     if not integration:
         return None
 
+    # Look up the business timezone so the event appears at the correct local time
+    from app.models.business import Business as BusinessModel
+    biz = db.query(BusinessModel).filter_by(owner_id=user_id).first()
+    tz_name = (biz.timezone if biz and biz.timezone else "America/New_York")
+
     try:
-        service = _get_google_service(integration)
+        gcal = _get_google_service(integration)  # renamed to avoid shadowing 'service' param
         end_dt = start_dt + timedelta(hours=1)
         event = {
             "summary": f"{service} — {lead_name}",
             "description": f"Client: {lead_name}\nService: {service}\nLocation: {location or '—'}\n\nBooked via Kairo AI",
             "location": location or "",
-            "start": {"dateTime": start_dt.isoformat(), "timeZone": "UTC"},
-            "end": {"dateTime": end_dt.isoformat(), "timeZone": "UTC"},
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": tz_name},
+            "end": {"dateTime": end_dt.isoformat(), "timeZone": tz_name},
         }
-        result = service.events().insert(calendarId="primary", body=event).execute()
+        result = gcal.events().insert(calendarId="primary", body=event).execute()
         return result.get("htmlLink")
     except Exception as e:
         import logging
