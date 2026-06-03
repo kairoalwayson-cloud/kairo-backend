@@ -296,14 +296,27 @@ def _save_call_log(db: Session, message: dict) -> None:
         )
         caller_phone = caller_raw.strip() if caller_raw else None
 
-        # Try to match an existing lead by phone
+        # Try to match an existing lead by phone (exact then fuzzy last-10-digits)
         lead_id = None
         if caller_phone:
             from app.models.lead import Lead as LeadModel
             lead = db.query(LeadModel).filter(
                 LeadModel.business_id == business.id,
                 LeadModel.phone == caller_phone,
-            ).first()
+            ).order_by(LeadModel.created_at.desc()).first()
+            if not lead:
+                digits = "".join(c for c in caller_phone if c.isdigit())
+                norm = digits[-10:] if len(digits) >= 10 else digits
+                if norm:
+                    candidates = db.query(LeadModel).filter(
+                        LeadModel.business_id == business.id,
+                        LeadModel.phone.isnot(None),
+                    ).order_by(LeadModel.created_at.desc()).limit(200).all()
+                    for cand in candidates:
+                        d = "".join(c for c in cand.phone if c.isdigit())
+                        if (d[-10:] if len(d) >= 10 else d) == norm:
+                            lead = cand
+                            break
             if lead:
                 lead_id = lead.id
 

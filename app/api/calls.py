@@ -17,6 +17,12 @@ def _get_business(db: Session, user: User) -> Business:
     return biz
 
 
+def _norm(phone: str) -> str:
+    """Last 10 digits of a phone number for fuzzy matching."""
+    digits = "".join(c for c in (phone or "") if c.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
 def _enrich(call: CallLog, db: Session, business_id) -> dict:
     lead_name = None
     lead_id = None
@@ -27,11 +33,25 @@ def _enrich(call: CallLog, db: Session, business_id) -> dict:
     lead = None
     if call.lead_id:
         lead = db.query(Lead).filter(Lead.id == call.lead_id).first()
-    elif call.caller_phone:
+
+    if not lead and call.caller_phone:
+        # Try exact match first, then last-10-digit fuzzy match
         lead = db.query(Lead).filter(
             Lead.business_id == business_id,
             Lead.phone == call.caller_phone,
         ).order_by(Lead.created_at.desc()).first()
+
+        if not lead:
+            norm = _norm(call.caller_phone)
+            if norm:
+                all_leads = db.query(Lead).filter(
+                    Lead.business_id == business_id,
+                    Lead.phone.isnot(None),
+                ).order_by(Lead.created_at.desc()).limit(200).all()
+                for l in all_leads:
+                    if _norm(l.phone) == norm:
+                        lead = l
+                        break
 
     if lead:
         lead_name = lead.name
