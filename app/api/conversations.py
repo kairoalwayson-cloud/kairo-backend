@@ -78,8 +78,14 @@ def list_leads(
     if status:
         query = query.filter(Lead.status == status)
 
-    from sqlalchemy import func
+    from sqlalchemy import func, case
+    # Leads with name+service float to top; within each tier, most recent first
+    priority = (
+        case((Lead.name.isnot(None), 2), else_=0) +
+        case((Lead.service_requested.isnot(None), 1), else_=0)
+    )
     leads = query.order_by(
+        priority.desc(),
         func.coalesce(Lead.last_message_at, Lead.created_at).desc()
     ).limit(100).all()
 
