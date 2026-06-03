@@ -85,7 +85,8 @@ def _build_assistant_payload(
         f"- CRITICAL — WEEKDAY NAMES: NEVER say a weekday name (Monday, Tuesday, Friday, etc.) when confirming a date UNLESS the caller used that exact weekday name themselves.\n"
         f"  Correct: 'June 4th at 4 PM — does that work for you?' ✓\n"
         f"  WRONG: 'Thursday, June 4th at 4 PM' ✗ (you may calculate the weekday incorrectly)\n"
-        f"  Exception: if the caller said 'next Friday', you may repeat 'Friday June 4th' only after verifying from {{{{now}}}} that June 4 is indeed a Friday.\n\n"
+        f"  Exception: if the caller said 'next Friday', you may repeat 'Friday June 4th' only after verifying from {{{{now}}}} that June 4 is indeed a Friday.\n"
+        f"- NEVER say the year when confirming a date. Just say month and day: 'June 4th', not 'June 4th 2026'.\n\n"
 
         f"ADDRESS — MANDATORY BEFORE BOOKING:\n"
         f"- NEVER call book_appointment without the caller's full street address.\n"
