@@ -95,15 +95,19 @@ def _build_assistant_payload(
         f"   - If the caller is in a city or state clearly outside the service area: same — politely decline and end.\n"
         f"   - If the location is ambiguous or close to the service area: accept and proceed.\n"
         f"   - Example rejection: 'I'm sorry, we only serve [service area] and unfortunately can't service [their location]. Is there anything else I can help you with?'\n"
-        f"5. Collect preferred date and time — calculate exact date, confirm full date out loud\n"
-        f"6. Call check_availability to verify the slot is open\n"
-        f"7. Once caller confirms, call book_appointment (only if you have: name, phone, address, date, time AND location is within service area)\n"
-        f"8. Confirm: Your appointment is confirmed for [full date] at [time]!\n"
-        f"9. Thank them and end the call professionally\n\n"
+        f"5. Ask for their preferred DATE — calculate the exact YYYY-MM-DD, confirm the full date out loud\n"
+        f"6. Call get_available_slots for that date — this checks the team's calendar and returns free time slots\n"
+        f"7. Read the available times to the caller naturally: 'We have openings at 9 AM, 11 AM, or 2 PM. Which works best for you?'\n"
+        f"8. Once caller picks a time, confirm: 'Perfect, so [full date] at [time] — does that sound right?'\n"
+        f"9. Once caller says yes, call book_appointment (only if you have: name, phone, address, date, time AND location within service area)\n"
+        f"10. Confirm: Your appointment is confirmed for [full date] at [time]!\n"
+        f"11. Thank them and end the call professionally\n\n"
         f"SCHEDULING RULES:\n"
         f"- NEVER say the team will confirm later, book it right now on the call\n"
-        f"- Always call check_availability before proposing a time\n"
-        f"- Always call book_appointment after the caller says yes\n"
+        f"- ALWAYS call get_available_slots BEFORE asking the caller what time they want — check the calendar first, then offer real openings\n"
+        f"- NEVER invent or guess available times — only offer times returned by get_available_slots\n"
+        f"- If get_available_slots returns no openings for a date, ask the caller to suggest another date and call get_available_slots again\n"
+        f"- Always call book_appointment after the caller confirms their chosen time\n"
         f"- NEVER call book_appointment if location/address is missing — ask for it first\n"
         f"- NEVER call book_appointment if the caller is in a different country or clearly outside the service area\n"
         f"- After book_appointment returns, read the confirmation naturally to the caller\n\n"
@@ -148,8 +152,23 @@ def _build_assistant_payload(
                 {
                     "type": "function",
                     "function": {
+                        "name": "get_available_slots",
+                        "description": "Check the team's calendar and return available time slots for a given date. Call this BEFORE asking the caller what time they prefer, so you can offer real openings.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "date": {"type": "string", "description": "Date in YYYY-MM-DD format"},
+                            },
+                            "required": ["date"],
+                        },
+                    },
+                    "server": {"url": TOOL_CALL_URL},
+                },
+                {
+                    "type": "function",
+                    "function": {
                         "name": "check_availability",
-                        "description": "Check if a date/time slot is available. Call only after confirming full date with caller.",
+                        "description": "Verify a specific date/time slot is still available before booking. Use as a final check if needed.",
                         "parameters": {
                             "type": "object",
                             "properties": {

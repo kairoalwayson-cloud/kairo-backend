@@ -191,11 +191,52 @@ def handle_check_availability(args: dict, db: Session, business: Business) -> st
         return f"I'm sorry, {date_str} at {time_str} is already booked. Could you suggest another date or time?"
 
 
+def handle_get_available_slots(args: dict, db: Session, business: Business) -> str:
+    """Return available time slots for a given date from the owner's calendar."""
+    from datetime import timedelta
+    date_str = args.get("date", "")
+
+    try:
+        from app.api.calendar import get_day_availability
+        slots = get_day_availability(str(business.owner_id), date_str, db)
+    except Exception as e:
+        logger.error(f"get_available_slots error: {e}")
+        return "We have openings throughout the day. What time works best for you?"
+
+    if not slots:
+        return f"Unfortunately we have no openings on that day. Could you suggest another date?"
+
+    # Extract hourly marks within each free window (max 4 options)
+    available_times: list[str] = []
+    for slot in slots:
+        start = datetime.fromisoformat(slot.start)
+        end = datetime.fromisoformat(slot.end)
+        current = start.replace(minute=0, second=0)
+        if current < start:
+            current += timedelta(hours=1)
+        while current < end and len(available_times) < 4:
+            hour = current.hour
+            suffix = "AM" if hour < 12 else "PM"
+            h12 = hour % 12 or 12
+            available_times.append(f"{h12}:00 {suffix}")
+            current += timedelta(hours=1)
+
+    if not available_times:
+        return f"Unfortunately we have no openings on that day. Could you suggest another date?"
+
+    if len(available_times) == 1:
+        return f"We have one opening on that day: {available_times[0]}. Does that work for you?"
+
+    slots_text = ", ".join(available_times[:-1]) + f" or {available_times[-1]}"
+    return f"We have openings at {slots_text} on that day. Which time works best for you?"
+
+
 # ── Main webhook ──────────────────────────────────────────────────────────────
 
 TOOL_HANDLERS = {
-    "book_appointment":    handle_book_appointment,
-    "check_availability":  handle_check_availability,
+    "book_appointment":       handle_book_appointment,
+    "check_availability":     handle_check_availability,
+    "get_available_slots":    handle_get_available_slots,
 }
 
 

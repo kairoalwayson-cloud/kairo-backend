@@ -480,6 +480,34 @@ def _compute_free_slots(
 # Helpers for Vapi tool calls
 # ---------------------------------------------------------------------------
 
+def get_day_availability(user_id: str, date_str: str, db) -> list:
+    """
+    Returns free AvailabilitySlot windows for the given day (08:00–18:00).
+    Used by Vapi's get_available_slots tool call.
+    Falls back to full working hours if no calendar is connected or check fails.
+    """
+    from app.models.calendar_integration import CalendarIntegration
+
+    start_dt = datetime.strptime(date_str, "%Y-%m-%d")
+    end_dt = start_dt + timedelta(days=1)
+    work_start = start_dt.replace(hour=8, minute=0, second=0)
+    work_end = start_dt.replace(hour=18, minute=0, second=0)
+
+    integration = db.query(CalendarIntegration).filter_by(
+        user_id=user_id, provider="google", is_active=True
+    ).first()
+
+    if not integration:
+        return [AvailabilitySlot(start=work_start.isoformat(), end=work_end.isoformat())]
+
+    try:
+        events = _google_events(integration, start_dt, end_dt)
+        busy_slots = [AvailabilitySlot(start=ev.start, end=ev.end) for ev in events if not ev.all_day]
+        return _compute_free_slots(work_start, work_end, busy_slots)
+    except Exception:
+        return [AvailabilitySlot(start=work_start.isoformat(), end=work_end.isoformat())]
+
+
 def is_slot_available(user_id: str, date_str: str, time_str: str, db) -> bool:
     """
     Returns True if the given slot is free in the user's Google Calendar.
