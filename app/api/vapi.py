@@ -195,6 +195,7 @@ def handle_get_available_slots(args: dict, db: Session, business: Business) -> s
     """Return available time slots for a given date from the owner's calendar."""
     from datetime import timedelta
     date_str = args.get("date", "")
+    current_time_str = args.get("current_time", "")  # HH:MM 24h, passed by Maya for today
 
     try:
         from app.api.calendar import get_day_availability
@@ -204,7 +205,17 @@ def handle_get_available_slots(args: dict, db: Session, business: Business) -> s
         return "We have openings throughout the day. What time works best for you?"
 
     if not slots:
-        return f"Unfortunately we have no openings on that day. Could you suggest another date?"
+        return "Unfortunately we have no openings on that day. Could you suggest another date?"
+
+    # Build cutoff: skip slots at or before (current_time + 1h) when caller gives current time
+    cutoff_dt = None
+    if current_time_str:
+        try:
+            base = datetime.strptime(date_str, "%Y-%m-%d")
+            t = datetime.strptime(current_time_str.strip(), "%H:%M")
+            cutoff_dt = base.replace(hour=t.hour, minute=t.minute) + timedelta(hours=1)
+        except Exception:
+            pass
 
     # Extract hourly marks within each free window (max 4 options)
     available_times: list[str] = []
@@ -215,6 +226,9 @@ def handle_get_available_slots(args: dict, db: Session, business: Business) -> s
         if current < start:
             current += timedelta(hours=1)
         while current < end and len(available_times) < 4:
+            if cutoff_dt and current <= cutoff_dt:
+                current += timedelta(hours=1)
+                continue
             hour = current.hour
             suffix = "AM" if hour < 12 else "PM"
             h12 = hour % 12 or 12
@@ -222,7 +236,7 @@ def handle_get_available_slots(args: dict, db: Session, business: Business) -> s
             current += timedelta(hours=1)
 
     if not available_times:
-        return f"Unfortunately we have no openings on that day. Could you suggest another date?"
+        return "We have no more openings for today. Would you like to schedule for tomorrow or another day?"
 
     if len(available_times) == 1:
         return f"We have one opening on that day: {available_times[0]}. Does that work for you?"

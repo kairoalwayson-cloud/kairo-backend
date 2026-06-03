@@ -106,6 +106,7 @@ def _build_assistant_payload(
         f"- NEVER say the team will confirm later, book it right now on the call\n"
         f"- ALWAYS call get_available_slots BEFORE asking the caller what time they want — check the calendar first, then offer real openings\n"
         f"- NEVER invent or guess available times — only offer times returned by get_available_slots\n"
+        f"- When calling get_available_slots for TODAY's date, always include current_time in HH:MM 24h format (extract from {{{{now}}}} in your context) so past slots are excluded automatically\n"
         f"- If get_available_slots returns no openings for a date, ask the caller to suggest another date and call get_available_slots again\n"
         f"- Always call book_appointment after the caller confirms their chosen time\n"
         f"- NEVER call book_appointment if location/address is missing — ask for it first\n"
@@ -175,11 +176,12 @@ def _build_assistant_payload(
                     "type": "function",
                     "function": {
                         "name": "get_available_slots",
-                        "description": "Check the team's calendar and return available time slots for a given date. Call this BEFORE asking the caller what time they prefer, so you can offer real openings.",
+                        "description": "Check the team's calendar and return available time slots for a given date. Call this BEFORE asking the caller what time they prefer. When the date is today, always pass current_time so past slots are excluded.",
                         "parameters": {
                             "type": "object",
                             "properties": {
                                 "date": {"type": "string", "description": "Date in YYYY-MM-DD format"},
+                                "current_time": {"type": "string", "description": "Current time in HH:MM 24h format. Required when date is today — read from {{now}} in your context."},
                             },
                             "required": ["date"],
                         },
