@@ -63,6 +63,11 @@ def _build_assistant_payload(
         f"- NEVER group digits into numbers. NEVER say 'vinte e sete' for '27'. Say 'dois, sete'.\n"
         f"- If caller says 'no' or 'não' to your confirmation, ask them to repeat digit by digit.\n\n"
 
+        f"TIME FORMAT FOR TOOL CALLS — ABSOLUTE RULES:\n"
+        f"- ALWAYS pass time to book_appointment in 24-hour HH:MM format.\n"
+        f"- 4 PM = 16:00. 5 PM = 17:00. 6 PM = 18:00. 12 PM (noon) = 12:00. 12 AM (midnight) = 00:00.\n"
+        f"- NEVER pass '04:00' for 4 PM. NEVER pass '05:00' for 5 PM. These are morning hours.\n"
+        f"- Rule: AM hours stay the same (9 AM = 09:00). PM hours: add 12 (except 12 PM = 12:00).\n\n"
         f"DATE CALCULATION — ABSOLUTE RULES:\n"
         f"- TODAY is: {{{{now}}}}. This is the current date and weekday. Use it for all date math.\n"
         f"- 'This Friday' / 'sexta dessa semana' / 'esta viernes' = the Friday of the CURRENT week.\n"
@@ -217,7 +222,7 @@ def _build_assistant_payload(
                                 "service":   {"type": "string", "description": "Service requested"},
                                 "location":  {"type": "string", "description": "Caller address or city"},
                                 "date":      {"type": "string", "description": "Date in YYYY-MM-DD format"},
-                                "time":      {"type": "string", "description": "Time in HH:MM format"},
+                                "time":      {"type": "string", "description": "Time in 24h HH:MM format. CRITICAL: 4 PM = 16:00, 5 PM = 17:00, 12 PM = 12:00, 12 AM = 00:00. Never use 12-hour format."},
                                 "notes":     {"type": "string", "description": "Additional notes"},
                             },
                             "required": ["lead_name", "phone", "service", "location", "date", "time"],

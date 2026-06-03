@@ -71,15 +71,22 @@ def _find_business(db: Session, message: dict) -> Optional[Business]:
     return db.query(Business).filter(Business.is_active == True).first()
 
 
-def _parse_appointment_dt(date_str: str, time_str: str) -> Optional[datetime]:
-    """Parse ISO date + HH:MM time into a naive datetime."""
+def _parse_appointment_dt(date_str: str, time_str: str, tz_name: str = "America/New_York") -> Optional[datetime]:
+    """Parse ISO date + HH:MM 24h time into a timezone-aware UTC datetime."""
     try:
-        return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        import pytz
+        naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        tz = pytz.timezone(tz_name)
+        local_dt = tz.localize(naive)
+        return local_dt.astimezone(pytz.utc).replace(tzinfo=None)  # store as UTC naive for DB
     except Exception:
         try:
-            return datetime.strptime(date_str, "%Y-%m-%d")
+            return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
         except Exception:
-            return None
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d")
+            except Exception:
+                return None
 
 
 # ── Tool handlers ─────────────────────────────────────────────────────────────
@@ -97,7 +104,7 @@ def handle_book_appointment(args: dict, db: Session, business: Business) -> str:
     time_str   = args.get("time", "08:00")
     notes      = args.get("notes", "")
 
-    appointment_dt = _parse_appointment_dt(date_str, time_str)
+    appointment_dt = _parse_appointment_dt(date_str, time_str, business.timezone or "America/New_York")
 
     # Upsert lead by phone within this business
     lead = None
