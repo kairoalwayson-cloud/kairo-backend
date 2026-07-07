@@ -134,6 +134,7 @@ def _build_flow():
 @router.get("/google/auth-url")
 def google_auth_url(
     return_to: str = "agenda",
+    mobile: bool = False,
     current_user: User = Depends(get_current_user),
 ):
     flow = _build_flow()
@@ -142,7 +143,7 @@ def google_auth_url(
         prompt="consent",
     )
     # Store code_verifier in state so callback can use it
-    state_data: dict = {"user_id": str(current_user.id), "exp": time.time() + 600, "return_to": return_to}
+    state_data: dict = {"user_id": str(current_user.id), "exp": time.time() + 600, "return_to": return_to, "mobile": mobile}
     if getattr(flow, "code_verifier", None):
         state_data["cv"] = flow.code_verifier
     state = jwt.encode(state_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -197,6 +198,9 @@ def google_callback(
 
     db.commit()
     return_to = payload.get("return_to", "agenda")
+    mobile = payload.get("mobile", False)
+    if mobile:
+        return RedirectResponse("kairo://agenda?connected=google")
     if return_to == "onboarding":
         return RedirectResponse(f"{settings.FRONTEND_URL}/onboarding?connected=google")
     return RedirectResponse(f"{settings.FRONTEND_URL}/dashboard/agenda?connected=google")
